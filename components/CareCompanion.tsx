@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -5,28 +6,29 @@ import { useEffect, useRef, useState } from "react";
 const ENDPOINT =
   "https://astrosam.app.n8n.cloud/webhook/aayumarg-chat";
 
-type Msg = {
+type Message = {
   role: "user" | "bot";
   text: string;
 };
 
-function renderText(text: string) {
+function renderMessage(text: string) {
   const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
 
   return parts.map((part, index) => {
     const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
 
-    if (match && /^(tel:|https?:)/i.test(match[2])) {
+    if (match && /^(https?:\/\/|tel:)/i.test(match[2])) {
       return (
         <a
           key={index}
           href={match[2]}
           target={match[2].startsWith("http") ? "_blank" : undefined}
-          rel={match[2].startsWith("http") ? "noopener noreferrer" : undefined}
-          style={{
-            fontWeight: 700,
-            textDecoration: "underline",
-          }}
+          rel={
+            match[2].startsWith("http")
+              ? "noopener noreferrer"
+              : undefined
+          }
+          style={{ fontWeight: 700, textDecoration: "underline" }}
         >
           {match[1].replace(/\*\*/g, "")}
         </a>
@@ -34,9 +36,7 @@ function renderText(text: string) {
     }
 
     return (
-      <span key={index}>
-        {part.replace(/\*\*/g, "")}
-      </span>
+      <span key={index}>{part.replace(/\*\*/g, "")}</span>
     );
   });
 }
@@ -45,8 +45,7 @@ export default function CareCompanion() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const [msgs, setMsgs] = useState<Msg[]>([
+  const [messages, setMessages] = useState<Message[]>([
     {
       role: "bot",
       text: "नमस्ते! मैं आपका Aayumarg Care Companion हूँ। आप मुझसे हिंदी, English या Hinglish में सवाल पूछ सकते हैं।",
@@ -73,15 +72,15 @@ export default function CareCompanion() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs, open]);
+  }, [messages, open, busy]);
 
-  async function send() {
+  async function sendMessage() {
     const message = input.trim();
 
     if (!message || busy) return;
 
     if (message.length > 2000) {
-      setMsgs((current) => [
+      setMessages((current) => [
         ...current,
         {
           role: "bot",
@@ -92,37 +91,38 @@ export default function CareCompanion() {
     }
 
     setInput("");
-    setMsgs((current) => [...current, { role: "user", text: message }]);
+    setMessages((current) => [
+      ...current,
+      { role: "user", text: message },
+    ]);
     setBusy(true);
 
     try {
-      const res = await fetch(ENDPOINT, {
+      const response = await fetch(ENDPOINT, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
           sessionId: sessionId.current,
         }),
       });
 
-      if (!res.ok) {
+      if (!response.ok) {
         throw new Error("Chat request failed");
       }
 
-      const data: { reply?: unknown } = await res.json();
+      const data: { reply?: unknown } = await response.json();
 
       if (typeof data.reply !== "string" || !data.reply.trim()) {
-        throw new Error("Invalid chat response");
+        throw new Error("Invalid response from chat service");
       }
 
-      setMsgs((current) => [
+      setMessages((current) => [
         ...current,
         { role: "bot", text: data.reply as string },
       ]);
     } catch {
-      setMsgs((current) => [
+      setMessages((current) => [
         ...current,
         {
           role: "bot",
@@ -147,7 +147,7 @@ export default function CareCompanion() {
       {open && (
         <section
           role="dialog"
-          aria-label="Aayumarg Care Companion chat"
+          aria-label="Aayumarg Care Companion"
           style={{
             width: 350,
             maxWidth: "calc(100vw - 32px)",
@@ -163,14 +163,14 @@ export default function CareCompanion() {
             overflow: "hidden",
           }}
         >
-          <div
+          <header
             style={{
               padding: 14,
               background: "#0f766e",
               color: "#fff",
               display: "flex",
-              alignItems: "center",
               justifyContent: "space-between",
+              alignItems: "center",
               gap: 8,
             }}
           >
@@ -191,13 +191,13 @@ export default function CareCompanion() {
                 background: "transparent",
                 color: "#fff",
                 border: 0,
-                fontSize: 22,
+                fontSize: 24,
                 cursor: "pointer",
               }}
             >
               ×
             </button>
-          </div>
+          </header>
 
           <div
             aria-live="polite"
@@ -210,15 +210,15 @@ export default function CareCompanion() {
               gap: 10,
             }}
           >
-            {msgs.map((msg, index) => (
+            {messages.map((message, index) => (
               <div
                 key={index}
                 style={{
                   alignSelf:
-                    msg.role === "user" ? "flex-end" : "flex-start",
+                    message.role === "user" ? "flex-end" : "flex-start",
                   background:
-                    msg.role === "user" ? "#0f766e" : "#f1f5f4",
-                  color: msg.role === "user" ? "#fff" : "#111",
+                    message.role === "user" ? "#0f766e" : "#f1f5f4",
+                  color: message.role === "user" ? "#fff" : "#111",
                   padding: "10px 12px",
                   borderRadius: 12,
                   maxWidth: "88%",
@@ -228,12 +228,14 @@ export default function CareCompanion() {
                   lineHeight: 1.5,
                 }}
               >
-                {msg.role === "bot" ? renderText(msg.text) : msg.text}
+                {message.role === "bot"
+                  ? renderMessage(message.text)
+                  : message.text}
               </div>
             ))}
 
             {busy && (
-              <div role="status" style={{ fontSize: 13, color: "#666" }}>
+              <div role="status" style={{ color: "#666", fontSize: 13 }}>
                 Thinking… / जवाब तैयार हो रहा है…
               </div>
             )}
@@ -244,7 +246,7 @@ export default function CareCompanion() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              void send();
+              void sendMessage();
             }}
             style={{
               display: "flex",
@@ -280,7 +282,7 @@ export default function CareCompanion() {
                 color: "#fff",
                 border: 0,
                 borderRadius: 9,
-                cursor: busy ? "wait" : "pointer",
+                cursor: "pointer",
                 opacity: busy || !input.trim() ? 0.65 : 1,
               }}
             >
