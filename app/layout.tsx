@@ -5,6 +5,8 @@ import AuthTokenBridge from '../components/AuthTokenBridge'
 import { FamilyProvider } from '../lib/family/FamilyContext'
 import './globals.css'
 
+import CareCompanion from "@/components/CareCompanion";
+
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
 
 export const metadata: Metadata = {
@@ -35,6 +37,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <AuthTokenBridge />
           <FamilyProvider>{children}</FamilyProvider>
         </ClerkProvider>
+        <CareCompanion />
       </body>
     </html>
   )
